@@ -9,32 +9,32 @@ FinSight is a high-performance, real-time trade surveillance and market abuse de
 FinSight uses a decoupled, three-tier architecture ensuring complete separation between transport protocols, business rules, and storage abstractions:
 
 ```mermaid
-graph TD
-    Client[HTTP REST Client / Trading Gateway]
+flowchart TD
+    Client["HTTP REST Client / Trading Gateway"]
     
-    subgraph Web Layer
-        Controller[TradeController <br/> <i>@RestController</i>]
-        Advice[GlobalExceptionHandler <br/> <i>@RestControllerAdvice</i>]
-        DTO[Create / Update Trade DTOs <br/> <i>Bean Validation</i>]
-    End
+    subgraph Web_Layer["Web Layer"]
+        Controller["TradeController (@RestController)"]
+        Advice["GlobalExceptionHandler (@RestControllerAdvice)"]
+        DTO["Create / Update Trade DTOs (Bean Validation)"]
+    end
 
-    subgraph Service Layer
-        Service[TradeService Interface]
-        ServiceImpl[TradeServiceImpl <br/> <i>Business Logic</i>]
-    End
+    subgraph Service_Layer["Service Layer"]
+        Service["TradeService Interface"]
+        ServiceImpl["TradeServiceImpl (Business Logic)"]
+    end
 
-    subgraph Data Access Layer
-        Repo[TradeRepository Interface]
-        InMemRepo[InMemoryTradeRepository <br/> <i>ConcurrentHashMap + AtomicLong</i>]
-    End
+    subgraph Data_Access_Layer["Data Access Layer"]
+        Repo["TradeRepository Interface"]
+        InMemRepo["InMemoryTradeRepository (ConcurrentHashMap + AtomicLong)"]
+    end
 
-    Client -->|HTTP GET / POST / PUT / DELETE| Controller
-    Controller -->|Validates DTO| DTO
-    Controller -->|Delegates| Service
-    Service -->|Implemented by| ServiceImpl
-    ServiceImpl -->|Queries / Persists| Repo
-    Repo -->|Implemented by| InMemRepo
-    Advice -->|Formats Error JSON| Client
+    Client -->|"HTTP GET / POST / PUT / DELETE"| Controller
+    Controller -->|"Validates DTO"| DTO
+    Controller -->|"Delegates"| Service
+    Service -->|"Implemented by"| ServiceImpl
+    ServiceImpl -->|"Queries / Persists"| Repo
+    Repo -->|"Implemented by"| InMemRepo
+    Advice -->|"Formats Error JSON"| Client
 ```
 
 ### Layer Interaction Sequence (ASCII)
