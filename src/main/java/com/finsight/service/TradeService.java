@@ -3,6 +3,7 @@ package com.finsight.service;
 import com.finsight.dto.CreateTradeRequest;
 import com.finsight.dto.TradeResponse;
 import com.finsight.dto.UpdateTradeRequest;
+import com.finsight.model.TradeStatus;
 
 import java.util.List;
 
@@ -38,4 +39,14 @@ public interface TradeService {
      * @throws com.finsight.exception.ResourceNotFoundException if trade does not exist.
      */
     void deleteTrade(Long id);
+
+    //adding a method for patching/updating the status of a trade
+    /**
+     * Updates the status of an existing trade record.
+     * @throws com.finsight.exception.ResourceNotFoundException if trade does not exist.
+     * @param id the ID of the trade to update
+     * @param status the new status of the trade
+     * @return the updated trade
+     */
+    TradeResponse updateTradeStatus(Long id, TradeStatus status);
 }

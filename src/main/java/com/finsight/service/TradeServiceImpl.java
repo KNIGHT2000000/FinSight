@@ -5,6 +5,7 @@ import com.finsight.dto.TradeResponse;
 import com.finsight.dto.UpdateTradeRequest;
 import com.finsight.exception.ResourceNotFoundException;
 import com.finsight.model.Trade;
+import com.finsight.model.TradeStatus;
 import com.finsight.repository.TradeRepository;
 import org.springframework.stereotype.Service;
 
@@ -78,5 +79,15 @@ public class TradeServiceImpl implements TradeService {
             throw new ResourceNotFoundException("Cannot delete. Trade record not found with ID: " + id);
         }
         tradeRepository.deleteById(id);
+    }
+
+    @Override
+    public TradeResponse updateTradeStatus(Long id, TradeStatus status) {
+        Trade existingTrade = tradeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Cannot update status. Trade record not found with ID: " + id));
+
+        existingTrade.setStatus(status);
+        Trade updatedTrade = tradeRepository.save(existingTrade);
+        return TradeResponse.fromEntity(updatedTrade);
     }
 }

@@ -3,6 +3,7 @@ package com.finsight.controller;
 import com.finsight.dto.CreateTradeRequest;
 import com.finsight.dto.TradeResponse;
 import com.finsight.dto.UpdateTradeRequest;
+import com.finsight.model.TradeStatus;
 import com.finsight.service.TradeService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -79,5 +80,17 @@ public class TradeController {
     public ResponseEntity<Void> deleteTrade(@PathVariable Long id) {
         tradeService.deleteTrade(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * a simple patch endpoint to update the status of a trade
+     * @param id the id of the trade to update
+     * @param status the new status of the trade
+     * @return the updated trade
+     */
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<TradeResponse> updateTradeStatus(@PathVariable Long id, @RequestParam TradeStatus status) {
+        TradeResponse updatedTrade = tradeService.updateTradeStatus(id, status);
+        return ResponseEntity.ok(updatedTrade);
     }
 }
