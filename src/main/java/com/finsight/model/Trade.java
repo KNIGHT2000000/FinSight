@@ -1,41 +1,67 @@
 package com.finsight.model;
 
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Domain entity representing an executed or submitted trade record in FinSight.
+ * JPA Entity representing a trade record in the PostgreSQL database.
  * 
  * --- TRADE SURVEILLANCE & LIFECYCLE MAPPING ---
  * In institutional trading environments (e.g., NICE Actimize, global investment banks),
  * trade records are captured post-execution or pre-allocation to detect market abuse patterns
  * such as spoofing, layering, insider trading, and wash trading.
  * 
- * - id: System-generated unique audit sequence identifier (used across audit trails).
- * - symbol: Ticker/Financial Instrument identifier (e.g., AAPL, NVDA, EUR/USD).
- * - side: BUY/SELL direction, critical for identifying wash sales or mismatched directional exposure.
- * - quantity: Order volume size. Abnormally high quantities relative to average daily volume trigger volume-spike alerts.
- * - price: Execution unit price. Out-of-band price execution flags potential off-market price manipulation.
- * - traderId: Unique ID of the trading account / trader submitting the order. Crucial for entity aggregation and cross-account behavior analysis.
- * - timestamp: ISO-8601 UTC timestamp of execution. High-precision timing is required for sequence reconstruction (e.g., front-running detection).
- * - status: PENDING, EXECUTED, or REJECTED state tracking order execution state.
+ * Mapped strictly to the Flyway-managed 'trades' table (ddl-auto is 'none').
  */
+@Entity
+@Table(name = "trades", indexes = {
+        @Index(name = "idx_trades_symbol", columnList = "symbol"),
+        @Index(name = "idx_trades_trader_id", columnList = "trader_id"),
+        @Index(name = "idx_trades_trader_id_created_at", columnList = "trader_id, created_at")
+})
 public class Trade {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
+
+    @Column(name = "symbol", nullable = false, length = 20)
     private String symbol;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "side", nullable = false, length = 10)
     private TradeSide side;
+
+    @Column(name = "quantity", nullable = false)
     private Long quantity;
+
+    @Column(name = "price", precision = 18, scale = 4, nullable = false)
     private BigDecimal price;
+
+    @Column(name = "trader_id", nullable = false, length = 50)
     private String traderId;
+
+    @Column(name = "timestamp", nullable = false)
     private Instant timestamp;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
     private TradeStatus status;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     public Trade() {
     }
 
-    public Trade(Long id, String symbol, TradeSide side, Long quantity, BigDecimal price, String traderId, Instant timestamp, TradeStatus status) {
+    public Trade(Long id, String symbol, TradeSide side, Long quantity, BigDecimal price, 
+                 String traderId, Instant timestamp, TradeStatus status) {
         this.id = id;
         this.symbol = symbol;
         this.side = side;
@@ -44,6 +70,39 @@ public class Trade {
         this.traderId = traderId;
         this.timestamp = timestamp;
         this.status = status;
+    }
+
+    public Trade(Long id, String symbol, TradeSide side, Long quantity, BigDecimal price, 
+                 String traderId, Instant timestamp, TradeStatus status, Instant createdAt, Instant updatedAt) {
+        this.id = id;
+        this.symbol = symbol;
+        this.side = side;
+        this.quantity = quantity;
+        this.price = price;
+        this.traderId = traderId;
+        this.timestamp = timestamp;
+        this.status = status;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        if (this.createdAt == null) {
+            this.createdAt = now;
+        }
+        if (this.updatedAt == null) {
+            this.updatedAt = now;
+        }
+        if (this.timestamp == null) {
+            this.timestamp = now;
+        }
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = Instant.now();
     }
 
     public Long getId() {
@@ -110,6 +169,22 @@ public class Trade {
         this.status = status;
     }
 
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -134,6 +209,8 @@ public class Trade {
                 ", traderId='" + traderId + '\'' +
                 ", timestamp=" + timestamp +
                 ", status=" + status +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
                 '}';
     }
 }

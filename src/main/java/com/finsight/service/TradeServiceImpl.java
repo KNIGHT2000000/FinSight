@@ -8,16 +8,19 @@ import com.finsight.model.Trade;
 import com.finsight.model.TradeStatus;
 import com.finsight.repository.TradeRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Service implementation managing trade ingestion and retrieval lifecycle.
+ * Service implementation managing trade ingestion, retrieval, and surveillance query lifecycle.
+ * Utilizes Spring Data JPA repository for persistent database operations.
  * Dependencies are injected exclusively via constructor for clear explicit dependencies and unit testability.
  */
 @Service
+@Transactional(readOnly = true)
 public class TradeServiceImpl implements TradeService {
 
     private final TradeRepository tradeRepository;
@@ -27,6 +30,7 @@ public class TradeServiceImpl implements TradeService {
     }
 
     @Override
+    @Transactional
     public TradeResponse createTrade(CreateTradeRequest request) {
         Trade trade = new Trade();
         trade.setSymbol(request.getSymbol().trim().toUpperCase());
@@ -57,6 +61,7 @@ public class TradeServiceImpl implements TradeService {
     }
 
     @Override
+    @Transactional
     public TradeResponse updateTrade(Long id, UpdateTradeRequest request) {
         Trade existingTrade = tradeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cannot update. Trade record not found with ID: " + id));
@@ -74,6 +79,7 @@ public class TradeServiceImpl implements TradeService {
     }
 
     @Override
+    @Transactional
     public void deleteTrade(Long id) {
         if (!tradeRepository.existsById(id)) {
             throw new ResourceNotFoundException("Cannot delete. Trade record not found with ID: " + id);
@@ -82,6 +88,7 @@ public class TradeServiceImpl implements TradeService {
     }
 
     @Override
+    @Transactional
     public TradeResponse updateTradeStatus(Long id, TradeStatus status) {
         Trade existingTrade = tradeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cannot update status. Trade record not found with ID: " + id));
@@ -89,5 +96,21 @@ public class TradeServiceImpl implements TradeService {
         existingTrade.setStatus(status);
         Trade updatedTrade = tradeRepository.save(existingTrade);
         return TradeResponse.fromEntity(updatedTrade);
+    }
+
+    @Override
+    public List<TradeResponse> getTradesByTraderId(String traderId) {
+        return tradeRepository.findByTraderId(traderId.trim())
+                .stream()
+                .map(TradeResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<TradeResponse> getTradesBySymbol(String symbol) {
+        return tradeRepository.findBySymbol(symbol.trim().toUpperCase())
+                .stream()
+                .map(TradeResponse::fromEntity)
+                .collect(Collectors.toList());
     }
 }

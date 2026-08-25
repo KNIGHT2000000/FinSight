@@ -40,7 +40,6 @@ public interface TradeService {
      */
     void deleteTrade(Long id);
 
-    //adding a method for patching/updating the status of a trade
     /**
      * Updates the status of an existing trade record.
      * @throws com.finsight.exception.ResourceNotFoundException if trade does not exist.
@@ -49,4 +48,14 @@ public interface TradeService {
      * @return the updated trade
      */
     TradeResponse updateTradeStatus(Long id, TradeStatus status);
+
+    /**
+     * Retrieves all trades for a specific trader ID.
+     */
+    List<TradeResponse> getTradesByTraderId(String traderId);
+
+    /**
+     * Retrieves all trades for a specific ticker symbol.
+     */
+    List<TradeResponse> getTradesBySymbol(String symbol);
 }

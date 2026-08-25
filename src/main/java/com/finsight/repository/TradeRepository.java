@@ -1,39 +1,47 @@
 package com.finsight.repository;
 
 import com.finsight.model.Trade;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 /**
- * Repository interface defining CRUD operations for Trade entities.
- * Abstraction layer to ensure Phase 2 PostgreSQL migration can be achieved seamlessly
- * by swapping the underlying Spring Data JPA repository implementation.
+ * Spring Data JPA Repository interface for Trade entities.
+ * 
+ * Inherits standard CRUD and pagination operations from JpaRepository.
+ * Defines domain-specific trade surveillance query methods aligned strictly
+ * with pre-existing database indexes in V1 migration:
+ * - idx_trades_symbol (symbol)
+ * - idx_trades_trader_id (trader_id)
+ * - idx_trades_trader_id_created_at (trader_id, created_at)
  */
-public interface TradeRepository {
+@Repository
+public interface TradeRepository extends JpaRepository<Trade, Long> {
 
     /**
-     * Saves a trade record. Generates an ID if trade.getId() is null.
+     * Retrieve all trades executed by a specific trader.
+     * Uses index: idx_trades_trader_id
      */
-    Trade save(Trade trade);
+    List<Trade> findByTraderId(String traderId);
 
     /**
-     * Finds a trade by its unique identifier.
+     * Retrieve all trades executed for a specific instrument/symbol.
+     * Uses index: idx_trades_symbol
      */
-    Optional<Trade> findById(Long id);
+    List<Trade> findBySymbol(String symbol);
 
     /**
-     * Retrieves all trades currently held in storage.
+     * Retrieve trades for a trader within a specific audit time window.
+     * Used in trade surveillance for velocity, wash trading, and spoofing pattern detection.
+     * Uses composite index: idx_trades_trader_id_created_at
      */
-    List<Trade> findAll();
+    List<Trade> findByTraderIdAndCreatedAtBetween(String traderId, Instant start, Instant end);
 
     /**
-     * Deletes a trade record by ID.
-     * @return true if trade existed and was deleted, false otherwise.
+     * Retrieve recent trades for a trader ordered chronologically descending.
+     * Uses composite index: idx_trades_trader_id_created_at
      */
-    boolean deleteById(Long id);
-
-    /**
-     * Checks whether a trade exists for a given ID.
-     */
-    boolean existsById(Long id);
+    List<Trade> findByTraderIdOrderByCreatedAtDesc(String traderId);
 }

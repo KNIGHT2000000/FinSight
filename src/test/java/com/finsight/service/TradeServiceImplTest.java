@@ -4,150 +4,193 @@ import com.finsight.dto.CreateTradeRequest;
 import com.finsight.dto.TradeResponse;
 import com.finsight.dto.UpdateTradeRequest;
 import com.finsight.exception.ResourceNotFoundException;
+import com.finsight.model.Trade;
 import com.finsight.model.TradeSide;
 import com.finsight.model.TradeStatus;
-import com.finsight.repository.InMemoryTradeRepository;
+import com.finsight.repository.TradeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.*;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class TradeServiceImplTest {
 
-    private InMemoryTradeRepository repository;
+    @Mock
+    private TradeRepository tradeRepository;
+
+    @InjectMocks
     private TradeServiceImpl tradeService;
+
+    private Trade sampleTrade;
 
     @BeforeEach
     void setUp() {
-        repository = new InMemoryTradeRepository();
-        tradeService = new TradeServiceImpl(repository);
+        sampleTrade = new Trade(
+                1L,
+                "AAPL",
+                TradeSide.BUY,
+                100L,
+                new BigDecimal("180.50"),
+                "TRADER_001",
+                Instant.now(),
+                TradeStatus.EXECUTED,
+                Instant.now(),
+                Instant.now()
+        );
     }
 
     @Test
-    @DisplayName("Should create trade successfully with auto-generated ID and default timestamp")
+    @DisplayName("Should create trade successfully with mapped fields")
     void createTrade_Success() {
         CreateTradeRequest request = new CreateTradeRequest(
                 "AAPL", TradeSide.BUY, 100L, new BigDecimal("180.50"), "TRADER_001", null, TradeStatus.EXECUTED
         );
 
+        when(tradeRepository.save(any(Trade.class))).thenAnswer(invocation -> {
+            Trade t = invocation.getArgument(0);
+            t.setId(1L);
+            return t;
+        });
+
         TradeResponse response = tradeService.createTrade(request);
 
         assertNotNull(response);
-        assertNotNull(response.getId());
+        assertEquals(1L, response.getId());
         assertEquals("AAPL", response.getSymbol());
         assertEquals(TradeSide.BUY, response.getSide());
         assertEquals(100L, response.getQuantity());
         assertEquals(new BigDecimal("180.50"), response.getPrice());
         assertEquals("TRADER_001", response.getTraderId());
-        assertNotNull(response.getTimestamp());
         assertEquals(TradeStatus.EXECUTED, response.getStatus());
+
+        verify(tradeRepository, times(1)).save(any(Trade.class));
     }
 
     @Test
-    @DisplayName("Should retrieve trade by ID")
+    @DisplayName("Should retrieve trade by ID when found")
     void getTradeById_Success() {
-        CreateTradeRequest request = new CreateTradeRequest(
-                "NVDA", TradeSide.BUY, 50L, new BigDecimal("120.00"), "TRADER_002", Instant.now(), TradeStatus.PENDING
-        );
-        TradeResponse created = tradeService.createTrade(request);
+        when(tradeRepository.findById(1L)).thenReturn(Optional.of(sampleTrade));
 
-        TradeResponse found = tradeService.getTradeById(created.getId());
+        TradeResponse found = tradeService.getTradeById(1L);
 
         assertNotNull(found);
-        assertEquals(created.getId(), found.getId());
-        assertEquals("NVDA", found.getSymbol());
+        assertEquals(1L, found.getId());
+        assertEquals("AAPL", found.getSymbol());
+        verify(tradeRepository, times(1)).findById(1L);
     }
 
     @Test
     @DisplayName("Should throw ResourceNotFoundException when querying non-existent trade")
     void getTradeById_NotFound() {
+        when(tradeRepository.findById(999L)).thenReturn(Optional.empty());
+
         assertThrows(ResourceNotFoundException.class, () -> tradeService.getTradeById(999L));
+        verify(tradeRepository, times(1)).findById(999L);
     }
 
     @Test
     @DisplayName("Should retrieve all trades")
     void getAllTrades_Success() {
-        tradeService.createTrade(new CreateTradeRequest("AAPL", TradeSide.BUY, 100L, new BigDecimal("150.00"), "T1", Instant.now(), TradeStatus.EXECUTED));
-        tradeService.createTrade(new CreateTradeRequest("MSFT", TradeSide.SELL, 200L, new BigDecimal("400.00"), "T2", Instant.now(), TradeStatus.PENDING));
+        Trade trade2 = new Trade(2L, "MSFT", TradeSide.SELL, 200L, new BigDecimal("400.00"), "T2", Instant.now(), TradeStatus.PENDING);
+        when(tradeRepository.findAll()).thenReturn(List.of(sampleTrade, trade2));
 
         List<TradeResponse> trades = tradeService.getAllTrades();
 
         assertEquals(2, trades.size());
+        verify(tradeRepository, times(1)).findAll();
     }
 
     @Test
     @DisplayName("Should update trade successfully")
     void updateTrade_Success() {
-        TradeResponse created = tradeService.createTrade(new CreateTradeRequest("AAPL", TradeSide.BUY, 100L, new BigDecimal("150.00"), "T1", Instant.now(), TradeStatus.PENDING));
+        when(tradeRepository.findById(1L)).thenReturn(Optional.of(sampleTrade));
+        when(tradeRepository.save(any(Trade.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UpdateTradeRequest updateRequest = new UpdateTradeRequest("AAPL", TradeSide.BUY, 150L, new BigDecimal("155.00"), "T1", Instant.now(), TradeStatus.EXECUTED);
-        TradeResponse updated = tradeService.updateTrade(created.getId(), updateRequest);
+        UpdateTradeRequest updateRequest = new UpdateTradeRequest("AAPL", TradeSide.BUY, 150L, new BigDecimal("185.00"), "TRADER_001", Instant.now(), TradeStatus.EXECUTED);
+        TradeResponse updated = tradeService.updateTrade(1L, updateRequest);
 
         assertEquals(150L, updated.getQuantity());
-        assertEquals(new BigDecimal("155.00"), updated.getPrice());
+        assertEquals(new BigDecimal("185.00"), updated.getPrice());
         assertEquals(TradeStatus.EXECUTED, updated.getStatus());
+        verify(tradeRepository, times(1)).save(sampleTrade);
     }
 
     @Test
-    @DisplayName("Should delete trade successfully")
+    @DisplayName("Should throw ResourceNotFoundException on update when trade does not exist")
+    void updateTrade_NotFound() {
+        when(tradeRepository.findById(999L)).thenReturn(Optional.empty());
+
+        UpdateTradeRequest updateRequest = new UpdateTradeRequest("AAPL", TradeSide.BUY, 150L, new BigDecimal("185.00"), "TRADER_001", Instant.now(), TradeStatus.EXECUTED);
+        assertThrows(ResourceNotFoundException.class, () -> tradeService.updateTrade(999L, updateRequest));
+    }
+
+    @Test
+    @DisplayName("Should delete trade successfully when ID exists")
     void deleteTrade_Success() {
-        TradeResponse created = tradeService.createTrade(new CreateTradeRequest("GOOGL", TradeSide.BUY, 10L, new BigDecimal("2800.00"), "T3", Instant.now(), TradeStatus.EXECUTED));
+        when(tradeRepository.existsById(1L)).thenReturn(true);
+        doNothing().when(tradeRepository).deleteById(1L);
 
-        tradeService.deleteTrade(created.getId());
+        tradeService.deleteTrade(1L);
 
-        assertThrows(ResourceNotFoundException.class, () -> tradeService.getTradeById(created.getId()));
+        verify(tradeRepository, times(1)).existsById(1L);
+        verify(tradeRepository, times(1)).deleteById(1L);
     }
 
     @Test
-    @DisplayName("Concurrency Test: 100 concurrent trade creations produce unique IDs without collision or race conditions")
-    void concurrentCreateTrades_ThreadSafety_NoIdCollisions() throws InterruptedException {
-        int threadCount = 100;
-        ExecutorService executorService = Executors.newFixedThreadPool(16);
-        CountDownLatch startLatch = new CountDownLatch(1);
-        CountDownLatch endLatch = new CountDownLatch(threadCount);
+    @DisplayName("Should throw ResourceNotFoundException when deleting non-existent trade")
+    void deleteTrade_NotFound() {
+        when(tradeRepository.existsById(999L)).thenReturn(false);
 
-        Set<Long> generatedIds = ConcurrentHashMap.newKeySet();
-        ConcurrentLinkedQueue<TradeResponse> createdTrades = new ConcurrentLinkedQueue<>();
+        assertThrows(ResourceNotFoundException.class, () -> tradeService.deleteTrade(999L));
+        verify(tradeRepository, never()).deleteById(anyLong());
+    }
 
-        for (int i = 0; i < threadCount; i++) {
-            final int index = i;
-            executorService.submit(() -> {
-                try {
-                    startLatch.await(); // Wait for sync start line
-                    CreateTradeRequest request = new CreateTradeRequest(
-                            "SYM_" + index,
-                            TradeSide.BUY,
-                            (long) (index + 1),
-                            new BigDecimal("100.00"),
-                            "TRADER_" + index,
-                            Instant.now(),
-                            TradeStatus.EXECUTED
-                    );
-                    TradeResponse response = tradeService.createTrade(request);
-                    generatedIds.add(response.getId());
-                    createdTrades.add(response);
-                } catch (Exception e) {
-                    fail("Concurrent trade creation failed with exception: " + e.getMessage());
-                } finally {
-                    endLatch.countDown();
-                }
-            });
-        }
+    @Test
+    @DisplayName("Should update trade status successfully")
+    void updateTradeStatus_Success() {
+        when(tradeRepository.findById(1L)).thenReturn(Optional.of(sampleTrade));
+        when(tradeRepository.save(any(Trade.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        startLatch.countDown(); // Release all threads simultaneously
-        boolean completed = endLatch.await(10, TimeUnit.SECONDS);
-        executorService.shutdown();
+        TradeResponse response = tradeService.updateTradeStatus(1L, TradeStatus.CANCELLED);
 
-        assertTrue(completed, "All concurrent tasks should complete within timeout");
-        assertEquals(threadCount, createdTrades.size(), "Total created trade responses should match thread count");
-        assertEquals(threadCount, generatedIds.size(), "All generated IDs must be unique (no ID collisions)");
-        assertEquals(threadCount, tradeService.getAllTrades().size(), "In-memory repository size must equal total created trades");
+        assertEquals(TradeStatus.CANCELLED, response.getStatus());
+        verify(tradeRepository, times(1)).save(sampleTrade);
+    }
+
+    @Test
+    @DisplayName("Should retrieve trades by traderId (Surveillance Query)")
+    void getTradesByTraderId_Success() {
+        when(tradeRepository.findByTraderId("TRADER_001")).thenReturn(List.of(sampleTrade));
+
+        List<TradeResponse> trades = tradeService.getTradesByTraderId("TRADER_001");
+
+        assertEquals(1, trades.size());
+        assertEquals("TRADER_001", trades.get(0).getTraderId());
+        verify(tradeRepository, times(1)).findByTraderId("TRADER_001");
+    }
+
+    @Test
+    @DisplayName("Should retrieve trades by symbol (Surveillance Query)")
+    void getTradesBySymbol_Success() {
+        when(tradeRepository.findBySymbol("AAPL")).thenReturn(List.of(sampleTrade));
+
+        List<TradeResponse> trades = tradeService.getTradesBySymbol("AAPL");
+
+        assertEquals(1, trades.size());
+        assertEquals("AAPL", trades.get(0).getSymbol());
+        verify(tradeRepository, times(1)).findBySymbol("AAPL");
     }
 }

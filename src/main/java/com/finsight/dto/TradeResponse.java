@@ -9,6 +9,7 @@ import java.time.Instant;
 
 /**
  * Data Transfer Object returned to API consumers representing a trade record.
+ * Decoupled cleanly from internal JPA persistence entity.
  */
 public class TradeResponse {
 
@@ -20,11 +21,19 @@ public class TradeResponse {
     private String traderId;
     private Instant timestamp;
     private TradeStatus status;
+    private Instant createdAt;
+    private Instant updatedAt;
 
     public TradeResponse() {
     }
 
-    public TradeResponse(Long id, String symbol, TradeSide side, Long quantity, BigDecimal price, String traderId, Instant timestamp, TradeStatus status) {
+    public TradeResponse(Long id, String symbol, TradeSide side, Long quantity, BigDecimal price, 
+                         String traderId, Instant timestamp, TradeStatus status) {
+        this(id, symbol, side, quantity, price, traderId, timestamp, status, null, null);
+    }
+
+    public TradeResponse(Long id, String symbol, TradeSide side, Long quantity, BigDecimal price, 
+                         String traderId, Instant timestamp, TradeStatus status, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.symbol = symbol;
         this.side = side;
@@ -33,6 +42,8 @@ public class TradeResponse {
         this.traderId = traderId;
         this.timestamp = timestamp;
         this.status = status;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
     public static TradeResponse fromEntity(Trade trade) {
@@ -45,7 +56,9 @@ public class TradeResponse {
                 trade.getPrice(),
                 trade.getTraderId(),
                 trade.getTimestamp(),
-                trade.getStatus()
+                trade.getStatus(),
+                trade.getCreatedAt(),
+                trade.getUpdatedAt()
         );
     }
 
@@ -111,5 +124,21 @@ public class TradeResponse {
 
     public void setStatus(TradeStatus status) {
         this.status = status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }
