@@ -3,6 +3,8 @@ package com.finsight.controller;
 import com.finsight.dto.CreateTradeRequest;
 import com.finsight.dto.TradeResponse;
 import com.finsight.dto.UpdateTradeRequest;
+import com.finsight.event.TradeCreatedEvent;
+import com.finsight.event.TradeEventPublisher;
 import com.finsight.model.TradeStatus;
 import com.finsight.service.IdempotencyService;
 import com.finsight.service.TradeService;
@@ -19,7 +21,8 @@ import java.util.Optional;
 /**
  * REST Controller exposing trade management and surveillance endpoints.
  * Follows strict HTTP semantics and returns ResponseEntity<T> on every handler method.
- * Supports distributed request idempotency via the 'Idempotency-Key' HTTP header.
+ * Supports distributed request idempotency via the 'Idempotency-Key' HTTP header
+ * and publishes real-time TradeCreatedEvent to Kafka topic 'trades.created'.
  */
 @RestController
 @RequestMapping("/api/v1/trades")
@@ -27,15 +30,20 @@ public class TradeController {
 
     private final TradeService tradeService;
     private final IdempotencyService idempotencyService;
+    private final TradeEventPublisher tradeEventPublisher;
 
-    public TradeController(TradeService tradeService, IdempotencyService idempotencyService) {
+    public TradeController(TradeService tradeService, 
+                           IdempotencyService idempotencyService, 
+                           TradeEventPublisher tradeEventPublisher) {
         this.tradeService = tradeService;
         this.idempotencyService = idempotencyService;
+        this.tradeEventPublisher = tradeEventPublisher;
     }
 
     /**
      * Ingest a new trade record.
      * Supports optional 'Idempotency-Key' header backed by Redis SETNX.
+     * Publishes TradeCreatedEvent to Kafka upon successful database persistence.
      * Returns 201 Created on fresh trade creation or cached 200/201 response on retry.
      */
     @PostMapping
@@ -47,10 +55,6 @@ public class TradeController {
             // 1. Check if already processed and cached in Redis
             Optional<TradeResponse> cached = idempotencyService.getCachedResponse(idempotencyKey);
             if (cached.isPresent()) {
-                URI location = ServletUriComponentsBuilder.fromCurrentRequest()
-                        .path("/{id}")
-                        .buildAndExpand(cached.get().getId())
-                        .toUri();
                 return ResponseEntity.ok(cached.get());
             }
 
@@ -70,6 +74,9 @@ public class TradeController {
                 TradeResponse createdTrade = tradeService.createTrade(request);
                 idempotencyService.storeResponse(idempotencyKey, createdTrade);
 
+                // Publish real-time trade event to Kafka for downstream surveillance
+                tradeEventPublisher.publishTradeCreated(TradeCreatedEvent.fromResponse(createdTrade));
+
                 URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                         .path("/{id}")
                         .buildAndExpand(createdTrade.getId())
@@ -84,6 +91,10 @@ public class TradeController {
 
         // Standard execution when no Idempotency-Key is supplied
         TradeResponse createdTrade = tradeService.createTrade(request);
+
+        // Publish real-time trade event to Kafka for downstream surveillance
+        tradeEventPublisher.publishTradeCreated(TradeCreatedEvent.fromResponse(createdTrade));
+
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(createdTrade.getId())

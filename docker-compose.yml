@@ -1,24 +1,10 @@
 version: '3.8'
 
+# FinSight Infrastructure Services
+# - Redis 7: Distributed request idempotency (SETNX) and response caching.
+# - Kafka 3.7 (KRaft mode): Real-time event backbone for trade ingestion and surveillance alerting.
+# - PostgreSQL 18: Installed and managed natively on host machine (localhost:5432).
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: finsight-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: finsight
-      POSTGRES_USER: finsight_user
-      POSTGRES_PASSWORD: finsight_dev_pass
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U finsight_user -d finsight"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:7-alpine
     container_name: finsight-redis
@@ -33,8 +19,32 @@ services:
       timeout: 5s
       retries: 5
 
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: finsight-kafka
+    restart: unless-stopped
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft mode configuration (ZooKeeper-free)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@localhost:9093'
+      KAFKA_LISTENERS: 'PLAINTEXT://:9092,CONTROLLER://:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://localhost:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    volumes:
+      - kafka_data:/tmp/kraft-combined-logs
+
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
+    driver: local
+  kafka_data:
     driver: local

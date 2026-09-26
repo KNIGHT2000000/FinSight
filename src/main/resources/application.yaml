@@ -4,7 +4,7 @@ spring:
 
   datasource:
     # Optimized JDBC URL for PostgreSQL with batch insert rewriting, TCP keep-alive, and unspecified string binding
-    url: jdbc:postgresql://localhost:5432/finsight?reWriteBatchedInserts=true&stringtype=unspecified&tcpKeepAlive=true
+    url: jdbc:postgresql://localhost:5432/finsight?currentSchema=finsight_user&reWriteBatchedInserts=true&stringtype=unspecified&tcpKeepAlive=true
     username: finsight_user
     password: finsight_dev_pass
     driver-class-name: org.postgresql.Driver
@@ -30,6 +30,23 @@ spring:
       port: 6379
       timeout: 2000ms
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: true
+    consumer:
+      group-id: finsight-surveillance-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.finsight.*"
+    template:
+      default-topic: trades.created
+
   jpa:
     hibernate:
       # Strict schema enforcement: Hibernate must never alter or create tables; Flyway is single source of truth
@@ -49,3 +66,25 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    default-schema: finsight_user
+    schemas: finsight_user
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+# ── Typology Intelligence Assistant (Section C) ───────────────────────────────
+# On-prem RAG assistant over curated regulatory typology documents.
+# Requires Ollama running locally: https://ollama.com
+#   ollama serve
+#   ollama pull nomic-embed-text   (137M — embedding model)
+#   ollama pull llama3.1:8b        (4.7GB — generation model)
+#
+# If Ollama is not running, the assistant endpoint returns 503.
+# All other FinSight endpoints are unaffected.
+finsight:
+  assistant:
+    ollama-base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    llm-model:       ${OLLAMA_LLM_MODEL:llama3.1:8b}
+    embedding-model: ${OLLAMA_EMBED_MODEL:nomic-embed-text}
+    top-k-results:   3

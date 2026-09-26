@@ -15,7 +15,7 @@
     <artifactId>finsight</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>FinSight</name>
-    <description>Real-Time Trade Surveillance and Market Abuse Detection Platform - Phase 2</description>
+    <description>Real-Time Trade Surveillance and Market Abuse Detection Platform - Phase 3</description>
 
     <properties>
         <java.version>17</java.version>
@@ -58,10 +58,29 @@
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
+        <!-- Spring Kafka for Real-Time Event Streaming -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- Spring WebSocket for Real-Time Compliance Alert Streaming -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- Testing Starter -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Spring Kafka Test for Hermetic Embedded Testing -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka-test</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -79,6 +98,11 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>kafka</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

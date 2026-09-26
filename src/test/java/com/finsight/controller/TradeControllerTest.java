@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finsight.dto.CreateTradeRequest;
 import com.finsight.dto.TradeResponse;
 import com.finsight.dto.UpdateTradeRequest;
+import com.finsight.event.TradeCreatedEvent;
+import com.finsight.event.TradeEventPublisher;
 import com.finsight.exception.ResourceNotFoundException;
 import com.finsight.model.TradeSide;
 import com.finsight.model.TradeStatus;
@@ -44,6 +46,9 @@ class TradeControllerTest {
     @MockBean
     private IdempotencyService idempotencyService;
 
+    @MockBean
+    private TradeEventPublisher tradeEventPublisher;
+
     @Test
     @DisplayName("POST /api/v1/trades -> 201 Created with Location header (No Idempotency-Key)")
     void createTrade_Valid_Returns201CreatedAndLocationHeader() throws Exception {
@@ -70,6 +75,7 @@ class TradeControllerTest {
                 .andExpect(jsonPath("$.status", is("EXECUTED")));
 
         verify(tradeService, times(1)).createTrade(any(CreateTradeRequest.class));
+        verify(tradeEventPublisher, times(1)).publishTradeCreated(any(TradeCreatedEvent.class));
     }
 
     @Test
@@ -96,10 +102,11 @@ class TradeControllerTest {
 
         verify(idempotencyService, times(1)).acquireLock(key);
         verify(idempotencyService, times(1)).storeResponse(eq(key), any(TradeResponse.class));
+        verify(tradeEventPublisher, times(1)).publishTradeCreated(any(TradeCreatedEvent.class));
     }
 
     @Test
-    @DisplayName("POST /api/v1/trades with Idempotency-Key -> Duplicate retry returns cached 200 OK without calling service")
+    @DisplayName("POST /api/v1/trades with Idempotency-Key -> Duplicate retry returns cached 200 OK without calling service or publishing Kafka event")
     void createTrade_WithDuplicateIdempotencyKey_ReturnsCachedResponse() throws Exception {
         String key = "key-test-duplicate";
         CreateTradeRequest request = new CreateTradeRequest(
@@ -121,6 +128,7 @@ class TradeControllerTest {
 
         verify(tradeService, never()).createTrade(any());
         verify(idempotencyService, never()).acquireLock(any());
+        verify(tradeEventPublisher, never()).publishTradeCreated(any());
     }
 
     @Test
